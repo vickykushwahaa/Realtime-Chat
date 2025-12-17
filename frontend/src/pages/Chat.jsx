@@ -105,7 +105,7 @@ export default function Chat({ user }) {
     const fetchUsers = async () => {
       setLoading(true);
       try {
-        const res = await axios.get("http://localhost:5000/api/users");
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/users`);
         setUsers(res.data.filter((u) => u._id !== user._id));
       } catch (error) {
         console.error("Error fetching users:", error);
@@ -128,7 +128,7 @@ export default function Chat({ user }) {
 
   const startChat = async (receiverId) => {
     try {
-      const res = await axios.post("http://localhost:5000/api/chats", {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/chats`, {
         senderId: user._id,
         receiverId,
       });
