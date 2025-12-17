@@ -38,7 +38,7 @@ const server = http.createServer(app);
 // socket.io server
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: "https://realtime-chat-1-336o.onrender.com",
     methods: ["GET", "POST"]
   }
 });
