@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import socket from "../socket";
 import axios from "axios";
+import { FaUsers, FaComments, FaPaperPlane, FaBars, FaTimes } from "react-icons/fa";
 
 export default function Chat({ user }) {
   const [users, setUsers] = useState([]);
@@ -9,43 +10,120 @@ export default function Chat({ user }) {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [chatUser, setChatUser] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
-  // Styles
+  // Responsive breakpoints
+  const MOBILE_BREAKPOINT = 768;
+  const TABLET_BREAKPOINT = 1024;
+
+  // Update window width on resize
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setWindowWidth(width);
+      setIsMobile(width < MOBILE_BREAKPOINT);
+      
+      // Auto-show/hide sidebar based on screen size
+      if (width < MOBILE_BREAKPOINT) {
+        setShowSidebar(false);
+      } else {
+        setShowSidebar(true);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Responsive styles based on screen size
   const styles = {
     container: {
       display: 'flex',
       height: '100vh',
+      width: '100vw',
+      overflow: 'hidden',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
     },
     sidebar: {
-      width: '131px',
-      background: 'rgba(255, 255, 255, 0.95)',
+      width: isMobile ? '100%' : windowWidth < TABLET_BREAKPOINT ? '200px' : '300px',
+      background: 'rgba(255, 255, 255, 0.98)',
       backdropFilter: 'blur(10px)',
       borderRight: '1px solid rgba(255, 255, 255, 0.2)',
-      padding: '20px',
-      boxShadow: '5px 0 15px rgba(0, 0, 0, 0.1)'
+      padding: isMobile ? '15px' : '20px',
+      boxShadow: '5px 0 15px rgba(0, 0, 0, 0.1)',
+      overflowY: 'auto',
+      position: isMobile ? 'fixed' : 'relative',
+      height: isMobile ? '100%' : '100vh',
+      zIndex: 1000,
+      left: showSidebar ? '0' : '-100%',
+      transition: 'left 0.3s ease',
+    },
+    overlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.5)',
+      zIndex: 999,
+      display: isMobile && showSidebar ? 'block' : 'none'
     },
     chatArea: {
       flex: 1,
       display: 'flex',
       flexDirection: 'column',
-      background: 'rgba(255, 255, 255, 0.9)',
-      backdropFilter: 'blur(5px)'
+      background: 'rgba(255, 255, 255, 0.95)',
+      backdropFilter: 'blur(5px)',
+      width: '100%',
+      minWidth: 0 // Prevents flex overflow
+    },
+    mobileHeader: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '15px',
+      background: 'rgba(255, 255, 255, 0.95)',
+      borderBottom: '1px solid rgba(0,0,0,0.1)',
+      position: 'sticky',
+      top: 0,
+      zIndex: 100
+    },
+    toggleButton: {
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      color: 'white',
+      border: 'none',
+      borderRadius: '50%',
+      width: '40px',
+      height: '40px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer',
+      fontSize: '18px'
     },
     userItem: {
       display: 'flex',
       alignItems: 'center',
-      padding: '12px 15px',
+      padding: isMobile ? '15px' : '12px 15px',
       margin: '8px 0',
       background: 'white',
       borderRadius: '12px',
       cursor: 'pointer',
       transition: 'all 0.3s ease',
-      boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
+      boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+      width: '100%',
+      border: '1px solid transparent',
+      '&:hover': {
+        borderColor: '#667eea'
+      }
     },
     avatar: {
-      width: '40px',
-      height: '40px',
+      width: isMobile ? '50px' : '40px',
+      height: isMobile ? '50px' : '40px',
+      minWidth: isMobile ? '50px' : '40px',
       borderRadius: '50%',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       display: 'flex',
@@ -53,14 +131,17 @@ export default function Chat({ user }) {
       justifyContent: 'center',
       color: 'white',
       fontWeight: 'bold',
-      marginRight: '12px'
+      marginRight: isMobile ? '15px' : '12px',
+      fontSize: isMobile ? '18px' : '16px'
     },
     messageBubble: (isMe) => ({
-      maxWidth: '70%',
-      padding: '12px 16px',
+      maxWidth: isMobile ? '85%' : '70%',
+      padding: isMobile ? '15px' : '12px 16px',
       margin: '8px 0',
       borderRadius: '18px',
       wordWrap: 'break-word',
+      wordBreak: 'break-word',
+      fontSize: isMobile ? '15px' : '14px',
       ...(isMe ? {
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         color: 'white',
@@ -73,25 +154,56 @@ export default function Chat({ user }) {
         borderBottomLeftRadius: '4px'
       })
     }),
+    inputContainer: {
+      display: 'flex',
+      padding: isMobile ? '15px' : '20px',
+      background: 'white',
+      borderTop: '1px solid #eaeaea',
+      gap: '10px',
+      position: 'sticky',
+      bottom: 0,
+      width: '100%',
+      boxSizing: 'border-box'
+    },
     input: {
       flex: 1,
-      padding: '15px 20px',
+      padding: isMobile ? '12px 15px' : '15px 20px',
       border: '2px solid #eaeaea',
       borderRadius: '25px',
-      fontSize: '16px',
+      fontSize: isMobile ? '16px' : '15px',
       outline: 'none',
-      transition: 'all 0.3s ease'
+      transition: 'all 0.3s ease',
+      minWidth: 0 // Prevents flex overflow
     },
     sendButton: {
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       color: 'white',
       border: 'none',
-      padding: '0 30px',
-      marginLeft: '10px',
+      padding: isMobile ? '0 20px' : '0 30px',
       borderRadius: '25px',
       cursor: 'pointer',
       fontWeight: '600',
-      transition: 'all 0.3s ease'
+      transition: 'all 0.3s ease',
+      fontSize: isMobile ? '14px' : '16px',
+      whiteSpace: 'nowrap',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    },
+    messagesContainer: {
+      flex: 1,
+      padding: isMobile ? '15px' : '20px',
+      overflowY: 'auto',
+      background: 'linear-gradient(180deg, #f8f9ff 0%, #ffffff 100%)',
+      WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+    },
+    chatHeader: {
+      padding: isMobile ? '15px' : '20px',
+      background: 'rgba(255, 255, 255, 0.95)',
+      borderBottom: '1px solid rgba(0,0,0,0.1)',
+      position: 'sticky',
+      top: 0,
+      zIndex: 50
     }
   };
 
@@ -138,17 +250,20 @@ export default function Chat({ user }) {
       );
 
       setCurrentChat(res.data);
-
-      // 🔥 THIS IS THE KEY
       const selectedUser = users.find(u => u._id === receiverId);
       setChatUser(selectedUser);
-
       setMessages([]);
       socket.emit("joinChat", res.data._id);
+      
+      // On mobile, close sidebar when chat starts
+      if (isMobile) {
+        setShowSidebar(false);
+      }
     } catch (err) {
       console.error(err);
     }
   };
+
   const sendMessage = () => {
     if (!currentChat?._id || !message.trim()) return;
 
@@ -173,101 +288,187 @@ export default function Chat({ user }) {
   const getInitials = (email) => {
     return email ? email.substring(0, 2).toUpperCase() : '??';
   };
+
   return (
     <div style={styles.container}>
+      {/* Mobile Overlay */}
+      {isMobile && showSidebar && (
+        <div 
+          style={styles.overlay} 
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <div style={styles.sidebar}>
+        {/* Mobile Close Button */}
+        {isMobile && (
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'flex-end',
+            marginBottom: '15px'
+          }}>
+            <button 
+              onClick={() => setShowSidebar(false)}
+              style={styles.toggleButton}
+            >
+              <FaTimes />
+            </button>
+          </div>
+        )}
+
         <h2 style={{ 
           margin: 0, 
+          fontSize: isMobile ? '20px' : '24px',
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent'
+          WebkitTextFillColor: 'transparent',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
         }}>
-          Hii, {user?.email?.split('@')[0] || 'User'}
+          <FaUsers /> Hi, {user?.email?.split('@')[0] || 'User'}
         </h2>
-        <p style={{ color: '#666', marginTop: '5px' }}>
-         <b>{users.length}</b> online
+        <p style={{ 
+          color: '#666', 
+          marginTop: '5px',
+          fontSize: isMobile ? '14px' : '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px'
+        }}>
+          <FaUsers style={{ fontSize: '12px' }} /> <b>{users.length}</b> online
         </p>
         
         <div style={{ marginTop: '20px' }}>
-          <h3 style={{ marginBottom: '15px', color: '#444', fontSize:'medium' }}>Chat with:</h3>
+          <h3 style={{ 
+            marginBottom: '15px', 
+            color: '#444', 
+            fontSize: isMobile ? '16px' : '18px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <FaComments /> Chat with:
+          </h3>
           {loading ? (
-            <div>Loading users...</div>
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              Loading users...
+            </div>
+          ) : users.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+              No users available
+            </div>
           ) : (
-            users.map((u) => (
-              <div 
-                key={u._id} 
-                style={{
-                  ...styles.userItem,
-                  background: currentChat?.participants?.includes(u._id) ? '#667eea' : 'white',
-                  color: currentChat?.participants?.includes(u._id) ? 'white' : 'inherit'
-                }}
-                onClick={() => startChat(u._id)}
-                onMouseEnter={(e) => {
-                  if (!currentChat?.participants?.includes(u._id)) {
-                    e.currentTarget.style.background = '#cacee3ff';
-                    e.currentTarget.style.transform = 'translateX(5px)';
-                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!currentChat?.participants?.includes(u._id)) {
-                    e.currentTarget.style.background = 'white';
-                    e.currentTarget.style.transform = 'translateX(0)';
-                    e.currentTarget.style.boxShadow = '0 2px 5px rgba(0,0,0,0.05)';
-                  }
-                }}
-              >
-                {/* <div style={styles.avatar}>
-                  {getInitials(u.email)}
-                </div> */}
-                <div>
-                  <div style={{ fontWeight: '500' }}>
-                    {u.email.split('@')[0]}
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr',
+              gap: '10px'
+            }}>
+              {users.map((u) => (
+                <div 
+                  key={u._id} 
+                  style={{
+                    ...styles.userItem,
+                    background: currentChat?.participants?.includes(u._id) 
+                      ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' 
+                      : 'white',
+                    color: currentChat?.participants?.includes(u._id) ? 'white' : 'inherit'
+                  }}
+                  onClick={() => startChat(u._id)}
+                  onMouseEnter={(e) => {
+                    if (!currentChat?.participants?.includes(u._id)) {
+                      e.currentTarget.style.background = '#f0f2ff';
+                      e.currentTarget.style.transform = 'translateX(5px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!currentChat?.participants?.includes(u._id)) {
+                      e.currentTarget.style.background = 'white';
+                      e.currentTarget.style.transform = 'translateX(0)';
+                    }
+                  }}
+                >
+                  <div style={styles.avatar}>
+                    {getInitials(u.email)}
                   </div>
-                  <div style={{ fontSize: '12px', color: currentChat?.participants?.includes(u._id) ? 'rgba(255,255,255,0.8)' : '#666' }}>
-                    {/* {u.email} */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ 
+                      fontWeight: '500', 
+                      fontSize: isMobile ? '16px' : '14px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {u.email.split('@')[0]}
+                    </div>
+                    <div style={{ 
+                      fontSize: isMobile ? '13px' : '12px', 
+                      color: currentChat?.participants?.includes(u._id) 
+                        ? 'rgba(255,255,255,0.8)' 
+                        : '#666',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {u.email}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       </div>
 
       {/* Chat Area */}
       <div style={styles.chatArea}>
-        <div style={{
-          padding: '20px',
-          background: 'rgba(255, 255, 255, 0.95)',
-          borderBottom: '1px solid rgba(0,0,0,0.1)'
-         }}>
-          {currentChat ? (
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={styles.avatar}>
-                {getInitials(chatUser?.email)}
-              </div>
-              <div>
-                <h3 style={{ margin: 0 }}>
-                  Chat with {chatUser?.email?.split("@")[0]}
+        {/* Mobile Header with Menu Button */}
+        {isMobile && (
+          <div style={styles.mobileHeader}>
+            <button 
+              onClick={() => setShowSidebar(true)}
+              style={styles.toggleButton}
+            >
+              <FaBars />
+            </button>
+            <div style={{ flex: 1, marginLeft: '15px' }}>
+              {currentChat ? (
+                <h3 style={{ margin: 0, fontSize: '18px' }}>
+                  {chatUser?.email?.split("@")[0]}
                 </h3>
-                <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '14px' }}>
-                  Online • Click to start chatting
-                </p>
-              </div>
+              ) : (
+                <h3 style={{ margin: 0, color: '#666' }}>Select a conversation</h3>
+              )}
             </div>
-          ) : (
-            <h3 style={{ margin: 0, color: '#666' }}>Select a conversation</h3>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Desktop Chat Header */}
+        {!isMobile && (
+          <div style={styles.chatHeader}>
+            {currentChat ? (
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={styles.avatar}>
+                  {getInitials(chatUser?.email)}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '20px' }}>
+                    Chat with {chatUser?.email?.split("@")[0]}
+                  </h3>
+                  <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '14px' }}>
+                    Online • Click to start chatting
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <h3 style={{ margin: 0, color: '#666' }}>Select a conversation</h3>
+            )}
+          </div>
+        )}
 
         {/* Messages Container */}
-        <div style={{
-          flex: 1,
-          padding: '20px',
-          overflowY: 'auto',
-          background: 'linear-gradient(180deg, #f8f9ff 0%, #ffffff 100%)'
-        }}>
+        <div style={styles.messagesContainer}>
           {!currentChat ? (
             <div style={{
               display: 'flex',
@@ -275,14 +476,34 @@ export default function Chat({ user }) {
               alignItems: 'center',
               justifyContent: 'center',
               height: '100%',
-              color: '#666'
+              color: '#666',
+              textAlign: 'center',
+              padding: isMobile ? '20px' : '40px'
             }}>
-              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '80px', height: '80px', opacity: 0.5 }}>
-                <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
-                <path d="M6 12h8v2H6zm0-3h12v2H6zm0-3h12v2H6z"/>
-              </svg>
-              <h3>No conversation selected</h3>
-              <p>Choose someone from the sidebar to start chatting</p>
+              <div style={{
+                width: isMobile ? '80px' : '100px',
+                height: isMobile ? '80px' : '100px',
+                background: 'rgba(102, 126, 234, 0.1)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '20px'
+              }}>
+                <FaComments style={{ fontSize: isMobile ? '40px' : '50px', color: '#667eea' }} />
+              </div>
+              <h3 style={{ 
+                fontSize: isMobile ? '20px' : '24px',
+                marginBottom: '10px'
+              }}>
+                No conversation selected
+              </h3>
+              <p style={{ 
+                fontSize: isMobile ? '14px' : '16px',
+                color: '#888'
+              }}>
+                {isMobile ? 'Tap menu button to select a user' : 'Choose someone from the sidebar to start chatting'}
+              </p>
             </div>
           ) : messages.length === 0 ? (
             <div style={{
@@ -291,23 +512,49 @@ export default function Chat({ user }) {
               alignItems: 'center',
               justifyContent: 'center',
               height: '100%',
-              color: '#666'
+              color: '#666',
+              textAlign: 'center',
+              padding: isMobile ? '20px' : '40px'
             }}>
-              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '80px', height: '80px', opacity: 0.5 }}>
-                <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-              </svg>
-              <h3>No messages yet</h3>
-              <p>Send your first message to start the conversation!</p>
+              <div style={{
+                width: isMobile ? '80px' : '100px',
+                height: isMobile ? '80px' : '100px',
+                background: 'rgba(102, 126, 234, 0.1)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '20px'
+              }}>
+                <FaPaperPlane style={{ fontSize: isMobile ? '40px' : '50px', color: '#667eea' }} />
+              </div>
+              <h3 style={{ 
+                fontSize: isMobile ? '20px' : '24px',
+                marginBottom: '10px'
+              }}>
+                No messages yet
+              </h3>
+              <p style={{ 
+                fontSize: isMobile ? '14px' : '16px',
+                color: '#888'
+              }}>
+                Send your first message to start the conversation!
+              </p>
             </div>
           ) : (
             messages.map((msg, i) => (
               <div key={i} style={styles.messageBubble(msg.senderId === user._id)}>
-                <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '4px' }}>
+                <div style={{ 
+                  fontSize: isMobile ? '13px' : '12px', 
+                  opacity: 0.8, 
+                  marginBottom: '4px',
+                  fontWeight: '500'
+                }}>
                   {msg.senderId === user._id
-                    ? user.email.split("@")[0]
+                    ? 'You'
                     : chatUser?.email?.split("@")[0]}
                 </div>
-                <div>{msg.text}</div>
+                <div style={{ lineHeight: 1.4 }}>{msg.text}</div>
                 <div style={{ 
                   fontSize: '11px', 
                   opacity: 0.7, 
@@ -326,13 +573,7 @@ export default function Chat({ user }) {
 
         {/* Input Area */}
         {currentChat && (
-          <div style={{
-            display: 'flex',
-            padding: '20px',
-            background: 'white',
-            borderTop: '1px solid #eaeaea',
-            boxShadow: '0 -2px 10px rgba(0,0,0,0.05)'
-          }}>
+          <div style={styles.inputContainer}>
             <input
               style={{
                 ...styles.input,
@@ -363,7 +604,7 @@ export default function Chat({ user }) {
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              Send
+              <FaPaperPlane /> {!isMobile && 'Send'}
             </button>
           </div>
         )}
