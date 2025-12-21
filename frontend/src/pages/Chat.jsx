@@ -8,6 +8,7 @@ export default function Chat({ user }) {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [chatUser, setChatUser] = useState(null);
 
   // Styles
   const styles = {
@@ -17,7 +18,7 @@ export default function Chat({ user }) {
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
     },
     sidebar: {
-      width: '300px',
+      width: '131px',
       background: 'rgba(255, 255, 255, 0.95)',
       backdropFilter: 'blur(10px)',
       borderRight: '1px solid rgba(255, 255, 255, 0.2)',
@@ -128,20 +129,26 @@ export default function Chat({ user }) {
 
   const startChat = async (receiverId) => {
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/chats`, {
-        senderId: user._id,
-        receiverId,
-      });
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/chats`,
+        {
+          senderId: user._id,
+          receiverId,
+        }
+      );
 
       setCurrentChat(res.data);
+
+      // 🔥 THIS IS THE KEY
+      const selectedUser = users.find(u => u._id === receiverId);
+      setChatUser(selectedUser);
+
       setMessages([]);
       socket.emit("joinChat", res.data._id);
-      console.log("Joined chat:", res.data._id);
     } catch (err) {
       console.error(err);
     }
   };
-
   const sendMessage = () => {
     if (!currentChat?._id || !message.trim()) return;
 
@@ -166,7 +173,6 @@ export default function Chat({ user }) {
   const getInitials = (email) => {
     return email ? email.substring(0, 2).toUpperCase() : '??';
   };
-
   return (
     <div style={styles.container}>
       {/* Sidebar */}
@@ -177,14 +183,14 @@ export default function Chat({ user }) {
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
-          Welcome, {user?.email?.split('@')[0] || 'User'}! 👋
+          Hii, {user?.email?.split('@')[0] || 'User'}
         </h2>
         <p style={{ color: '#666', marginTop: '5px' }}>
-          {users.length} people online
+         <b>{users.length}</b> online
         </p>
         
         <div style={{ marginTop: '20px' }}>
-          <h3 style={{ marginBottom: '15px', color: '#444' }}>Chat with:</h3>
+          <h3 style={{ marginBottom: '15px', color: '#444', fontSize:'medium' }}>Chat with:</h3>
           {loading ? (
             <div>Loading users...</div>
           ) : (
@@ -199,7 +205,7 @@ export default function Chat({ user }) {
                 onClick={() => startChat(u._id)}
                 onMouseEnter={(e) => {
                   if (!currentChat?.participants?.includes(u._id)) {
-                    e.currentTarget.style.background = '#f0f2ff';
+                    e.currentTarget.style.background = '#cacee3ff';
                     e.currentTarget.style.transform = 'translateX(5px)';
                     e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
                   }
@@ -212,15 +218,15 @@ export default function Chat({ user }) {
                   }
                 }}
               >
-                <div style={styles.avatar}>
+                {/* <div style={styles.avatar}>
                   {getInitials(u.email)}
-                </div>
+                </div> */}
                 <div>
                   <div style={{ fontWeight: '500' }}>
                     {u.email.split('@')[0]}
                   </div>
                   <div style={{ fontSize: '12px', color: currentChat?.participants?.includes(u._id) ? 'rgba(255,255,255,0.8)' : '#666' }}>
-                    {u.email}
+                    {/* {u.email} */}
                   </div>
                 </div>
               </div>
@@ -235,21 +241,15 @@ export default function Chat({ user }) {
           padding: '20px',
           background: 'rgba(255, 255, 255, 0.95)',
           borderBottom: '1px solid rgba(0,0,0,0.1)'
-        }}>
+         }}>
           {currentChat ? (
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <div style={styles.avatar}>
-                {getInitials(
-                  users.find(u => 
-                    currentChat.participants?.includes(u._id) && u._id !== user._id
-                  )?.email
-                )}
+                {getInitials(chatUser?.email)}
               </div>
               <div>
                 <h3 style={{ margin: 0 }}>
-                  Chat with {users.find(u => 
-                    currentChat.participants?.includes(u._id) && u._id !== user._id
-                  )?.email?.split('@')[0]}
+                  Chat with {chatUser?.email?.split("@")[0]}
                 </h3>
                 <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '14px' }}>
                   Online • Click to start chatting
@@ -303,7 +303,9 @@ export default function Chat({ user }) {
             messages.map((msg, i) => (
               <div key={i} style={styles.messageBubble(msg.senderId === user._id)}>
                 <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '4px' }}>
-                  {msg.senderId === user._id ? 'You' : 'Friend'}
+                  {msg.senderId === user._id
+                    ? user.email.split("@")[0]
+                    : chatUser?.email?.split("@")[0]}
                 </div>
                 <div>{msg.text}</div>
                 <div style={{ 
